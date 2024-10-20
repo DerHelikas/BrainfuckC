@@ -1,91 +1,114 @@
 #include "Brainfuck.h"
-#include "BrainFuckUtils.h"
 
 
-void BrainFuckInicReading(int Length, const char *commandsPaths[])
-{
-    Brainfuck_settings BrainfuctDefines = {0,1,40};
-    int  DeepChanged = 0;
+void CodeBrainFuckWorker(const char * code, Brainfuck_settings BrainfuckDefines);
+void FileBrainFuckWorker(const char * filePath, Brainfuck_settings BrainfuckDefines);
+int BrainfuckWorker(const char * code, unsigned int codeLength, Brainfuck_settings brs);
 
-    int FileWorking = 0, UseCode = 0; 
 
-    char * ExecFilePath; 
+int BrainfuckCodeVerifier(const char * code,Brainfuck_settings BrainfuctDefines){
+    char * pCode = code;
+    unsigned int i =0;
+    int  req_ARR_pointerMoves = 0, bracketsZones = 0;
+    while(*pCode){
 
-    for (int i = 0; i < Length; i++)
-    {
-        if(strcomp(commandsPaths[i],"--ASCII", -1))
-            BrainfuctDefines.UseASCII = 1;
-        
-        else if(strcomp(commandsPaths[i],"--Space", -1))
-            BrainfuctDefines.UseSpaces = 1;
-        
-        else if(strcomp(commandsPaths[i],"--D",3))
+        switch (*pCode)
         {
-            if(strlen(commandsPaths[i]) > 4)
-            { 
-                DeepChanged = 1;
-                int digit =  atoi(commandsPaths[i] + 3);
-                BrainfuctDefines.ZonesDeeep = digit;
-            }
-        }
-
-        else if (strcomp(commandsPaths[i],"-f", -1)) 
-        {
-            if(i + 1 >= Length)
+        case '+':
+        case '-':
+        case ',':
+        case '.':
+            break;
+        
+        case '>':
+            req_ARR_pointerMoves++;
+            if(req_ARR_pointerMoves > BrainfuctDefines.ARRsize)
             {
-                printf_s("  | -f argument is exist, but no file path has been declared.");
-                return;
+                printf_s("\n  Requested Array pointer shifts are greater than defined. Current: %i(Array size: %i) at %i ", req_ARR_pointerMoves,BrainfuctDefines.ARRsize, i);
+                return - 1;
             }
+        break;
 
-            // File does exist, flag -r- is available
-            if (access(commandsPaths[i+1],F_OK) == 0 && access(commandsPaths[i+1], 3) == 0){
-                ExecFilePath = commandsPaths[i+1];
-                FileWorking = 1;
+        case '<':
+            req_ARR_pointerMoves--;
+            if(req_ARR_pointerMoves < 0)
+            {
+                printf_s("\n  Requested Array pointer shifts are lower than 0(Array size: %i) : %i at %i ",BrainfuctDefines.ARRsize, req_ARR_pointerMoves, i);
+                return - 1;
             }
+        break;
 
-            // File does exist, flag -r- is not available
-            else if(access(commandsPaths[i+1], 3) != 0){
-                printf("The given file does exist, but unable to read");
+        case ']':
+            if(bracketsZones <= 0)
+            {
+                printf_s("\n  CRITICAL! Wrong brackets closing. Did you forget to open it? At: %i", i);
+                return  - 1;
             }
+            bracketsZones--;
+        break;
 
-            // File neither does not exist, neither -r- flag has it
-            else{
-                printf("The argument -f is not a file or does not exist");
-            }
+        case '[':
+            bracketsZones++;
+        break;
+
+        default:
+            printf_s("\n      Unexpected symbol %c int:%i has been detected at %i", *pCode, (int)*pCode, i);
+            break;
         }
+
+        pCode++;
     }
+
+    if(bracketsZones != 0){
+        printf_s("\n  CRITICAL! Some brackers are not closed. Check gave: %i", bracketsZones);
+        return -1;
+    }
+}
+
+void BrainFuckInicReading(int argc,  void *argv[])
+{
+    struct Brainfuck_settings BrainfuctDefines = CLIargumentFetcher(argc,argv); 
+    char * ExecFilePath, *Code;     
 
     printf_s("\n| BrainFuck C Interpretator %i", BRAINFUCK_INTERPRETATOR_VERSION);
     printf_s("\n  | Use ASCII characters (1 - true/0 - false) - %i", BrainfuctDefines.UseASCII);
     printf_s("\n  | Use Spaces between chars (1 - true/0 - false) - %i", BrainfuctDefines.UseSpaces);
 
-    if(DeepChanged == 1)
-        printf_s("\n  | Use Max deep %i", BrainfuctDefines.ZonesDeeep);
-    else
-        printf_s("\n  | Use standart deep %i", BrainfuctDefines.ZonesDeeep);
 
     
-    if(FileWorking)
-        FileBrainFuckWorker(ExecFilePath,BrainfuctDefines);
+    if(BrainfuctDefines.ExecFileCode == 'f')
+        FileBrainFuckWorker(BrainfuctDefines.ExecuteArg,BrainfuctDefines);
+
+    else if(BrainfuctDefines.ExecFileCode == 'c')
+        CodeBrainFuckWorker(BrainfuctDefines.ExecuteArg,BrainfuctDefines);
     
+    else {
+        printf_s("\n  -| You gave no file/code to work with");
+    }
+
     printf_s("\n\nBRAINFUCK has done without any exceptions... lucky one");
 }
 
+void CodeBrainFuckWorker(const char * code, Brainfuck_settings BrainfuckDefines){
+    printf_s("\n  | > Checking code ... It can take some seconds, if this code is big");
+    if(BrainfuckCodeVerifier(code,BrainfuckDefines) == -1)
+    {
+        printf_s("Finished because of an exception");
+        exit(-1);
+    }
 
+    int codeSize = 0;
+    char * p = code; 
+    while(*p++)
+    codeSize++;
 
-void FileBrainFuckWorker(const char * filePath, Brainfuck_settings BrainfuctDefines){
+    printf_s("\n\n\nRes:");
+    BrainfuckWorker(code,codeSize,BrainfuckDefines);
+}
+
+void FileBrainFuckWorker(const char * filePath, Brainfuck_settings BrainfuckDefines){
 
     FILE * file = fopen(filePath, "r");
-
-    //File checking is skipped. If we're here, then file does exist and can be read.
-
-    if(BrainfuctDefines.UseASCII == 1 && BrainfuctDefines.UseSpaces == 1)
-        BrainfuctDefines.TOTAL_OUTPUT_MODE = 2;
-    else if(BrainfuctDefines.UseSpaces == 1)
-        BrainfuctDefines.TOTAL_OUTPUT_MODE = 1;
-    else 
-        BrainfuctDefines.TOTAL_OUTPUT_MODE = 0;
-    
 
     int f_text_size = -1;
     fseek(file,0,SEEK_END); 
@@ -96,17 +119,29 @@ void FileBrainFuckWorker(const char * filePath, Brainfuck_settings BrainfuctDefi
     fgets(code,f_text_size,file);
 
 
+    printf_s("\n  | > Checking code ... It can take some seconds, if this code is big");
+    if(BrainfuckCodeVerifier(code,BrainfuckDefines) == -1)
+    {
+        printf_s("Finished because of an exception");
+        exit(-1);
+    }
+
     printf_s("\n\n\nRes:");
-    BrainfuckWorker(code,f_text_size,BrainfuctDefines);
+    BrainfuckWorker(code,f_text_size,BrainfuckDefines);
 }
 
 
 int BrainfuckWorker(const char * code, unsigned int codeLength, Brainfuck_settings brs){
-    int  ARR[BRAINFUCK_ARRAY_SIZE] = {0};
-    unsigned int  ArrI = 0;
+    int  ArrI = 0;
     int BracketsDeep = 0;
 
-    unsigned int * L_brackets_Deep = malloc(sizeof(unsigned int) * brs.ZonesDeeep);
+    int * ARR = malloc(sizeof (int) * brs.ARRsize);
+    isAllocated(ARR, "Can't allocate memory for Array");
+    memset(ARR, 0, brs.ARRsize);
+
+    
+    int * L_brackets_Deep = malloc(sizeof(int) * brs.ZonesDeeep);
+    isAllocated(L_brackets_Deep, "Can't allocate memory for Brackets control");
     memset(L_brackets_Deep,0,brs.ZonesDeeep);
 
 
@@ -149,7 +184,7 @@ int BrainfuckWorker(const char * code, unsigned int codeLength, Brainfuck_settin
         break;
 
         case '>':
-            ArrI++;
+            ArrI++; 
         break;
 
         case '<':
@@ -170,8 +205,13 @@ int BrainfuckWorker(const char * code, unsigned int codeLength, Brainfuck_settin
                     printf_s(" %i", ARR[ArrI]);
                 break;
 
-                // ASCII + Spaces
+                // ASCII
                 case 2:
+                    printf_s("%c", ARR[ArrI]);
+                break;
+
+                // Space + ASCII
+                case 3:
                     printf_s(" %c", ARR[ArrI]);
                 break;
             }
@@ -198,5 +238,8 @@ int BrainfuckWorker(const char * code, unsigned int codeLength, Brainfuck_settin
             break;
         }
     }
-    
+
+    free(L_brackets_Deep);
+    free(ARR);
+    free(code);
 }

@@ -1,0 +1,10 @@
+make_gcc:
+	gcc -o brainfuckcintr ./Main.c ./BrainFuckC_files/*.h ./BrainFuckC_files/*.c
+
+Unix_mrun_gcc:
+	make_gcc
+	./brainfuckcintr
+
+Windows_mrun_gcc:
+	make_gcc
+	./brainfuckcintr.exe

@@ -6,4 +6,4 @@ project(BrainFuck)
 
 file(GLOB BrainfFuckModules "BrainFuckC_files/*.c" "BrainFuckC_files/*.h")
 
-add_executable(BrainFuckC Main.c ${BrainfFuckModules})
+add_executable(BrainFuckIntr Main.c ${BrainfFuckModules})
